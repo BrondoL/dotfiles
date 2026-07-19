@@ -1,0 +1,249 @@
+{
+  "reload_style_on_change": true,
+  "layer": "top",
+  "position": "top",
+  "spacing": 10,
+  "height": 26,
+  "margin": 2,
+  "modules-left": ["custom/omarchy", "hyprland/workspaces", "mpris"],
+  "modules-center": ["clock", "custom/weather", "custom/update", "custom/voxtype", "custom/screenrecording-indicator", "custom/idle-indicator", "custom/notification-silencing-indicator"],
+  "modules-right": [
+    "group/tray-expander",
+    "pulseaudio",
+    "custom/net-speed",
+    "bluetooth",
+    "custom/vpn",
+    "network",
+    "temperature", "temperature#gpu",
+    "cpu",
+    "battery"
+  ],
+  "hyprland/workspaces": {
+    "on-click": "activate",
+    "format": "{icon}",
+    "format-icons": {
+      "default": "",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "0",
+      "active": "󱓻"
+    },
+    "persistent-workspaces": {
+      "1": [],
+      "2": [],
+      "3": [],
+      "4": [],
+      "5": []
+    }
+  },
+  "hyprland/window": {
+    "format": "{title} - {class}",
+    "max-length": 55,
+    "rewrite": {
+      " - ": "", // if no window is focused, a single dash is displayed, this removes it
+      "(.*?) - Chromium - chromium": "  $1 ",
+      "(.*chrome)...(.*)": "  $1 ",
+      "(.*) - Obsidian - .* - obsidian": "  $1 ",
+      "(.*nvim)...(.*)": "  $2 ",
+      "(.*code) - (.*)": " 󰨞 $1 ",
+      "^.*btop( .*|$)": " 󰧨 BTOP $1 ",
+      "^.*cmatrix( .*|$)": " 󰘨 MATRIX $1 ",
+      "(.*) - Spotify": "  $1 ",
+      "(.*) - com.mitchellh.ghostty": " 󰊠 $1 ",
+      "(.*) - Alacritty": "   $1 ",
+      "(.*) - BeeperTexts": " 󰻞  $1 ",
+      "(.*Discord)...(.*).. (.*)": "  $2 ",
+      "(.*) - org.gnome.Nautilus": " 󰣆 $1 ",
+      "(.*) - fish": "  [$1] ",
+      "(.*Steam)...(.*)": "  $1 ",
+      "(.*imv)...(.*).. (.*)": "  $2 ",
+      "(.*) - com.obsproject.Studio": "  $1 "
+    }
+  },
+  "custom/omarchy": {
+    "format": "<span font='omarchy'>\ue900</span>",
+    "on-click": "omarchy-menu",
+    "on-click-right": "xdg-terminal-exec",
+    "tooltip-format": "Omarchy Menu\n\nSuper + Alt + Space"
+  },
+  "custom/update": {
+    "format": "",
+    "exec": "omarchy-update-available",
+    "on-click": "omarchy-launch-floating-terminal-with-presentation omarchy-update",
+    "tooltip-format": "Omarchy update available",
+    "signal": 7,
+    "interval": 21600
+  },
+  "cpu": {
+    "interval": 5,
+    "format": "󰍛",
+    "on-click": "omarchy-launch-or-focus-tui btop",
+    "on-click-right": "alacritty"
+  },
+  "clock": {
+    "format": "{:L%A, %d %B %Y %H:%M:%S}",
+    "format-alt": "{:L%d %B W%V %Y}",
+    "tooltip": false,
+    "interval": 1,
+    "on-click-right": "omarchy-launch-floating-terminal-with-presentation omarchy-tz-select"
+  },
+  "custom/weather": {
+    "exec": "$OMARCHY_PATH/default/waybar/weather.sh",
+    "return-type": "json",
+    "interval": 60,
+    "tooltip": false,
+    "on-click": "notify-send -u low \"$(omarchy-weather-status)\""
+  },
+  "custom/net-speed": {
+    "exec": "~/.config/waybar/scripts/net-speed",
+    "interval": 3,
+    "format": "{}",
+    "return-type": "json",
+    "on-click": "hyprctl dispatch exec \"[float;center;size 900 600] alacritty -e bash -c 'speedtest-cli; exec bash'\""
+  },
+  "network": {
+    "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
+    "format": "{icon}",
+    "format-wifi": "{icon}",
+    "format-ethernet": "󰀂",
+    "format-disconnected": "󰤮",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)",
+    "tooltip-format-ethernet": "Connected",
+    "tooltip-format-disconnected": "Disconnected",
+    "interval": 3,
+    "spacing": 1,
+    "on-click": "omarchy-launch-wifi"
+  },
+  "battery": {
+    "format": "{capacity}% {icon}",
+    "format-discharging": "{icon}",
+    "format-charging": "{icon}",
+    "format-plugged": "",
+    "format-icons": {
+      "charging": ["󰢜", "󰂆", "󰂇", "󰂈", "󰢝", "󰂉", "󰢞", "󰂊", "󰂋", "󰂅"],
+      "default": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"]
+    },
+    "format-full": "󰂅",
+    "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
+    "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
+    "interval": 5,
+    "on-click": "omarchy-menu power",
+    "on-click-right": "notify-send -u low \"$(omarchy-battery-status)\"",
+    "states": {
+      "warning": 20,
+      "critical": 10
+    }
+  },
+  "bluetooth": {
+    "format": "",
+    "format-off": "󰂲",
+    "format-disabled": "󰂲",
+    "format-connected": "󰂱",
+    "format-no-controller": "",
+    "tooltip-format": "Devices connected: {num_connections}",
+    "on-click": "omarchy-launch-bluetooth"
+  },
+  "pulseaudio": {
+    "format": "{icon}",
+    "on-click": "omarchy-launch-audio",
+    "on-click-right": "pamixer -t",
+    "tooltip-format": "Playing at {volume}%",
+    "scroll-step": 5,
+    "format-muted": "",
+    "format-icons": {
+      "headphone": "",
+      "headset": "",
+      "default": ["", "", ""]
+    }
+  },
+  "group/tray-expander": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 600,
+      "children-class": "tray-group-item"
+    },
+    "modules": ["custom/expand-icon", "tray"]
+  },
+  "custom/expand-icon": {
+    "format": "",
+    "tooltip": false,
+    "on-scroll-up": "",
+    "on-scroll-down": "",
+    "on-scroll-left": "",
+    "on-scroll-right": ""
+  },
+  "custom/screenrecording-indicator": {
+    "on-click": "omarchy-capture-screenrecording",
+    "exec": "$OMARCHY_PATH/default/waybar/indicators/screen-recording.sh",
+    "signal": 8,
+    "return-type": "json"
+  },
+  "custom/idle-indicator": {
+    "on-click": "omarchy-toggle-idle",
+    "exec": "$OMARCHY_PATH/default/waybar/indicators/idle.sh",
+    "signal": 9,
+    "return-type": "json"
+  },
+  "custom/notification-silencing-indicator": {
+    "on-click": "omarchy-toggle-notification-silencing",
+    "exec": "$OMARCHY_PATH/default/waybar/indicators/notification-silencing.sh",
+    "signal": 10,
+    "return-type": "json"
+  },
+  "custom/voxtype": {
+    "exec": "omarchy-voxtype-status",
+    "return-type": "json",
+    "format": "{icon}",
+    "format-icons": {
+      "idle": "",
+      "recording": "󰍬",
+      "transcribing": "󰔟"
+    },
+    "tooltip": true,
+    "on-click-right": "omarchy-voxtype-config",
+    "on-click": "omarchy-voxtype-model"
+  },
+  "tray": {
+    "icon-size": 12,
+    "spacing": 17
+  },
+  "mpris": {
+    "format": "{player_icon} {artist} - {title}",
+    "format-paused": "{status_icon} <i>{artist} - {title}</i>",
+    "ignored-players": [
+      "chromium"
+    ],
+    "player-icons": {
+      "default": "🎵",
+      "mpv": "🎵"
+    },
+    "status-icons": {
+      "paused": "⏸"
+    }
+  },
+  "temperature": {
+    "format": "CPU {temperatureC}°C ",
+    "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
+    "critical-threshold": 80,
+    "interval": 5
+  },
+  "temperature#gpu": {
+      "format": "GPU {temperatureC}°C ",
+      "hwmon-path": "/sys/class/hwmon/hwmon1/temp1_input",
+      "critical-threshold": 85,
+      "interval": 5
+  },
+  "custom/vpn": {
+    "exec": "~/.config/waybar/scripts/vpn-status.sh",
+    "interval": 3,
+    "return-type": "json",
+    "on-click": "~/.config/waybar/scripts/vpn-toggle.sh"
+  }
+}

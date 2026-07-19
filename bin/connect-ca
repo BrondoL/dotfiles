@@ -1,0 +1,142 @@
+#!/bin/bash
+# =========================================
+# ca-menu.sh - Walker interactive safe version
+# =========================================
+
+# -----------------------
+# Konfigurasi paths & URL
+# -----------------------
+TMP_COOKIES="/tmp/ca-cookies.json"
+TMP_RDP_FILE="/tmp/ca.rdp"
+AUTO_LOGIN_DIR="/home/brondol/.config/bin/auto-login-ca"
+AUTO_LOGIN_VENV="$AUTO_LOGIN_DIR/venv/bin/activate"
+AUTO_LOGIN_PY="$AUTO_LOGIN_DIR/main.py"
+CYBERARK_BASE="https://cyberark.local.brondol.id"
+
+# -----------------------
+# Server list: friendly name => "hostname|accountID|protocol"
+# -----------------------
+declare -A SERVERS
+SERVERS=(
+    ["OPR03 - P1JUMPAP04"]="P1JUMPAP04.local.brondol.id|99_312|RDP"
+    ["OPR02 - P1JUMPAP03"]="10.9.11.88|99_272|RDP"
+    ["OPR04 - P1JUMPAP01"]="10.9.11.87|99_61|RDP"
+    ["ROOT - CK-MARCHING"]="ck-marching|NA|SSH"
+    ["ROOT - AUTOMARKET"]="automarket|NA|SSH"
+)
+
+# -----------------------
+# Helper: pastikan daemon jalan
+# usage: ensure_daemon <pgrep-mode> <pattern> -- <cmd>...
+# -----------------------
+ensure_daemon() {
+    local mode="$1" pattern="$2"
+    shift 2
+    if ! pgrep "$mode" "$pattern" > /dev/null; then
+        setsid uwsm-app -- "$@" >/dev/null 2>&1 &
+    fi
+}
+
+ensure_daemon -x elephant elephant
+ensure_daemon -f "walker --gapplication-service" env GSK_RENDERER=cairo walker --gapplication-service
+
+# -----------------------
+# Pilih server via Walker GUI
+# Hapus --selectsingle agar Walker menunggu Enter
+# -----------------------
+CHOICE=$(
+    printf "%s\n" "${!SERVERS[@]}" \
+    | sort -V \
+    | walker --dmenu --placeholder "Select server..." 2>/dev/null
+)
+
+if [ -z "$CHOICE" ]; then
+    echo "No server selected. Exiting."
+    exit 0
+fi
+
+IFS="|" read -r HOST ACCOUNT PROTO <<< "${SERVERS[$CHOICE]}"
+
+echo "Connecting to $CHOICE ($HOST) via $PROTO"
+notify-send "Cyberark" "Connecting to $CHOICE ($HOST) via $PROTO..."
+
+if [ "$PROTO" = "RDP" ]; then
+    # Login + fail fast: kalau main.py exit != 0, berhenti langsung dengan notif
+    ensure_login() {
+        echo "Fetching cookies via Python..."
+        source "$AUTO_LOGIN_VENV"
+        if ! python "$AUTO_LOGIN_PY"; then
+            notify-send -u critical "Cyberark" "Belum Login CyberArk ❌"
+            echo "Error: Login CyberArk gagal."
+            exit 1
+        fi
+    }
+
+    load_cookies() {
+        IFS=$'\t' read -r CA22222 CA88888 CA11111 CA66666 < <(
+            jq -r '[
+                (.[] | select(.name=="CA22222") | .value),
+                (.[] | select(.name=="CA88888") | .value),
+                (.[] | select(.name=="CA11111") | .value),
+                (.[] | select(.name=="CA66666") | .value)
+            ] | @tsv' "$TMP_COOKIES"
+        )
+    }
+
+    is_valid_rdp() {
+        grep -q "^full address:s:" "$TMP_RDP_FILE"
+    }
+
+    curl_with_cookies() {
+        if [ ! -s "$TMP_COOKIES" ]; then
+            ensure_login
+        fi
+
+        load_cookies
+
+        cat /dev/null > "$TMP_RDP_FILE"
+
+        curl -sS "$CYBERARK_BASE/PasswordVault/api/Accounts/$ACCOUNT/PSMConnect" \
+          -H 'accept: application/vnd.cyberark.api+json; flat=true; version=1.0' \
+          -H 'accept-language: en-US,en;q=0.9' \
+          -H 'content-type: application/json' \
+          -b "CA88888=$CA88888; CA11111=$CA11111; CA22222=$CA22222; CA55555=saml; CA66666=$CA66666; PreferredCulture=en" \
+          -H "origin: $CYBERARK_BASE" \
+          -H 'priority: u=1, i' \
+          -H "referer: $CYBERARK_BASE/PasswordVault/v10/Applications/epv/" \
+          -H 'sec-ch-ua: "Not/A)Brand";v="99", "Chromium";v="148"' \
+          -H 'sec-ch-ua-mobile: ?0' \
+          -H 'sec-ch-ua-platform: "Linux"' \
+          -H 'sec-fetch-dest: empty' \
+          -H 'sec-fetch-mode: cors' \
+          -H 'sec-fetch-site: same-origin' \
+          -H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36' \
+          -H "x-ca66666: $CA66666" \
+          --data-raw "{\"reason\":\"Cek Log\",\"ConnectionComponent\":\"PSM-RDP\",\"ConnectionParams\":{\"AllowMappingLocalDrives\":{\"value\":\"Yes\",\"ShouldSave\":false},\"AllowConnectToConsole\":{\"value\":\"No\",\"ShouldSave\":false},\"PSMRemoteMachine\":{\"value\":\"$HOST\",\"ShouldSave\":false}}}" \
+          --insecure \
+          -o "$TMP_RDP_FILE"
+    }
+
+    curl_with_cookies
+
+    # Kalau curl gagal / RDP file invalid, ambil cookies ulang
+    if ! is_valid_rdp; then
+        echo "RDP file invalid, refreshing cookies..."
+        notify-send "Cyberark" "RDP file invalid. Refreshing cookies..."
+        ensure_login
+        curl_with_cookies
+
+        if ! is_valid_rdp; then
+            notify-send "Cyberark" "Failed to fetch RDP file for $CHOICE ($HOST)"
+            echo "Error: Failed to fetch valid RDP file even after refreshing cookies."
+            exit 1
+        fi
+    fi
+
+    rdp-open "$TMP_RDP_FILE"
+elif [ "$PROTO" = "SSH" ]; then
+    alacritty -e ssh "$HOST"
+else
+    echo "Unknown connection type: $PROTO"
+    exit 1
+fi

@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Interface dan host ping
+IF="enp34s0"
+PING_HOST="1.1.1.1"
+TMPFILE="/tmp/${IF}_prev_bytes"
+TIMEFILE="/tmp/${IF}_prev_time"
+
+# Baca current bytes dan waktu
+CUR_RX=$(cat /sys/class/net/$IF/statistics/rx_bytes)
+CUR_TX=$(cat /sys/class/net/$IF/statistics/tx_bytes)
+CUR_TIME=$(date +%s)
+
+# Baca previous bytes dan waktu
+if [ -f "$TMPFILE" ] && [ -f "$TIMEFILE" ]; then
+    read PREV_RX PREV_TX < "$TMPFILE"
+    PREV_TIME=$(cat "$TIMEFILE")
+else
+    PREV_RX=$CUR_RX
+    PREV_TX=$CUR_TX
+    PREV_TIME=$CUR_TIME
+fi
+
+# Simpan current bytes dan waktu untuk run berikutnya
+echo "$CUR_RX $CUR_TX" > "$TMPFILE"
+echo "$CUR_TIME" > "$TIMEFILE"
+
+# Hitung interval detik
+INTERVAL=$((CUR_TIME - PREV_TIME))
+[ $INTERVAL -le 0 ] && INTERVAL=1  # mencegah div/0
+
+# Hitung speed per detik (bytes/sec)
+RX_SPEED=$(( (CUR_RX - PREV_RX) / INTERVAL ))
+TX_SPEED=$(( (CUR_TX - PREV_TX) / INTERVAL ))
+
+# Konversi ke Mbps
+RX_Mbps=$(awk "BEGIN {printf \"%.1f\", ($RX_SPEED*8)/1000000}")
+TX_Mbps=$(awk "BEGIN {printf \"%.1f\", ($TX_SPEED*8)/1000000}")
+
+# Placeholder run pertama
+if [ "$RX_SPEED" -le 0 ] && [ "$TX_SPEED" -le 0 ]; then
+    RX_Mbps="--"
+    TX_Mbps="--"
+fi
+
+# Ping sekali
+PING=$(ping -c 1 -W 1 "$PING_HOST" 2>/dev/null | awk -F'=' '/time=/{print $4}' | awk '{print $1}')
+[ -z "$PING" ] && PING="--"
+
+# Tentukan class berdasarkan ping
+if [[ "$PING" == "--" ]]; then
+    CLASS="ping-unavailable"
+elif (( $(echo "$PING < 50" | bc -l) )); then
+    CLASS="ping-good"
+elif (( $(echo "$PING < 150" | bc -l) )); then
+    CLASS="ping-medium"
+else
+    CLASS="ping-bad"
+fi
+
+# Icon untuk ping
+if [[ "$CLASS" == "ping-good" ]]; then
+    ICON="🟢"
+elif [[ "$CLASS" == "ping-medium" ]]; then
+    ICON="🟡"
+elif [[ "$CLASS" == "ping-bad" ]]; then
+    ICON="🔴"
+else
+    ICON="⚪"
+fi
+
+# Output JSON untuk Waybar
+printf '{"text":"↓%s Mbps ↑%s Mbps %s%sms","class":"%s"}\n' "$RX_Mbps" "$TX_Mbps" "$ICON" "$PING" "$CLASS"

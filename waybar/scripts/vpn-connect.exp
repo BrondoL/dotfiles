@@ -1,0 +1,29 @@
+#!/usr/bin/expect -f
+set timeout -1
+set otp $env(VPN_OTP)
+set sudopass $env(SUDO_PASS)  ;# simpan password sudo di env
+
+spawn sudo openfortivpn
+
+expect {
+    -re "(?i)password for.*:" {
+        send "$sudopass\r"
+        exp_continue
+    }
+    "Two-factor authentication token:" {
+        send "$otp\r"
+        expect {
+            "INFO:   Connected to gateway." {
+                interact
+            }
+            "ERROR: Could not authenticate to gateway." {
+                puts "OTP invalid or login failed"
+                exit 1
+            }
+        }
+    }
+    timeout {
+        puts "Timeout waiting for sudo/OTP prompt"
+        exit 1
+    }
+}

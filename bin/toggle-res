@@ -1,0 +1,9 @@
+#!/bin/bash
+
+CURRENT=$(hyprctl monitors | grep "DP-2" -A 2 | grep -o "1920x1080")
+
+if [[ "$CURRENT" == "1920x1080" ]]; then
+    hyprctl keyword monitor "DP-2,3440x1440@180,0x0,1"
+else
+    hyprctl keyword monitor "DP-2,1920x1080@171,0x0,1"
+fi
